@@ -159,6 +159,7 @@ else:
     name = st.text_input("Your Name")
     join_notice = st.empty()  # ephemeral notification
 
+    # Join Game button
     if st.button("Join Game"):
         if name.strip():
             if name not in [p[0] for p in st.session_state["players"]]:
@@ -178,9 +179,9 @@ else:
             "Players currently joined: " + ", ".join([p[0] for p in st.session_state["players"]])
         )
 
-    # Start game automatically if host has started
+    # ONLY show quiz if host has started
     if is_game_started():
         st.success("✅ The host has started the game!")
-        if st.session_state["current_player"] is None:
-            st.session_state["current_player"] = name
-        play_game(st.session_state["current_player"])
+        play_game(name)
+    else:
+        st.info("⏳ Waiting for host to start the game...")
