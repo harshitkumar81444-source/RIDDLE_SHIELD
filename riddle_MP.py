@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import qrcode
-from PIL import Image
+import pyqrcode
+import io
 import random
 import os
 
@@ -44,9 +44,10 @@ def show_leaderboard():
 # QR Code Function
 # ---------------------------
 def show_qr_code():
-    qr = qrcode.make(APP_URL)
-    qr.save("qr.png")
-    st.image("qr.png", caption="📱 Scan to join the game", width=250)
+    qr = pyqrcode.create(APP_URL)
+    buffer = io.BytesIO()
+    qr.png(buffer, scale=6)
+    st.image(buffer, caption="📱 Scan to join the game", width=250)
 
 # ---------------------------
 # Game Data
