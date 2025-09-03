@@ -54,6 +54,13 @@ def set_game_started():
     df = pd.DataFrame({"started": [1]})
     df.to_csv(GAME_STATE_FILE, index=False)
 
+def reset_game():
+    df = pd.DataFrame({"started": [0]})
+    df.to_csv(GAME_STATE_FILE, index=False)
+    st.session_state["players"] = []
+    st.session_state["last_player_count"] = 0
+    st.session_state["current_player"] = None
+
 # ---------------------------
 # QR Code Function
 # ---------------------------
@@ -119,6 +126,7 @@ if role == "Host":
     st.write("Project this QR code for classmates to join:")
     show_qr_code()
 
+    # Joined Players Table
     st.subheader("Joined Players (Real-Time Table)")
     if st.session_state["players"]:
         st.table(pd.DataFrame(st.session_state["players"], columns=["Name"]))
@@ -136,6 +144,11 @@ if role == "Host":
         set_game_started()
         st.success("Game started! Players can now see questions.")
 
+    # Reset Game button
+    if st.button("🔄 Reset Game"):
+        reset_game()
+        st.success("Game reset! You can start a new session now.")
+
 # ---------------------------
 # Player View
 # ---------------------------
@@ -150,9 +163,9 @@ else:
         if name.strip():
             if name not in [p[0] for p in st.session_state["players"]]:
                 st.session_state["players"].append([name])
-                # Brief popup for other players
+                # Brief popup for all players (1.5 seconds)
                 join_notice.success(f"🎉 New player joined: {name}!")
-                time.sleep(1.5)  # show for 1.5 seconds
+                time.sleep(1.5)
                 join_notice.empty()
             st.success(f"Welcome, {name}! Waiting for host to start...")
         else:
@@ -165,7 +178,7 @@ else:
             "Players currently joined: " + ", ".join([p[0] for p in st.session_state["players"]])
         )
 
-    # Check if game started by host
+    # Start game automatically if host has started
     if is_game_started():
         st.success("✅ The host has started the game!")
         if st.session_state["current_player"] is None:
