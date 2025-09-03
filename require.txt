@@ -1,4 +1,2 @@
 streamlit==1.38.0
 pandas==2.0.3
-pyqrcode==1.2.1
-pypng==0.20230219
