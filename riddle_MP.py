@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import random
 import os
-import time
 
 # ---------------------------
 # Constants
@@ -83,7 +82,7 @@ if "scores" not in st.session_state:
 if "current_player" not in st.session_state:
     st.session_state["current_player"] = None
 if "last_player_count" not in st.session_state:
-    st.session_state["last_player_count"] = 0  # for flash notification
+    st.session_state["last_player_count"] = 0
 
 # ---------------------------
 # Game Functions
@@ -122,25 +121,22 @@ if role == "Host":
     st.subheader("Joined Players (Real-Time)")
     players_container = st.empty()
 
-    # Real-time lobby refresh
-    while not is_game_started():
-        # Update joined players table
-        if st.session_state["players"]:
-            players_container.table(pd.DataFrame(st.session_state["players"], columns=["Name"]))
-        else:
-            players_container.info("No players yet. Waiting...")
+    # Update joined players
+    if st.session_state["players"]:
+        players_container.table(pd.DataFrame(st.session_state["players"], columns=["Name"]))
+    else:
+        players_container.info("No players yet. Waiting...")
 
-        # Flash notification if new player joined
-        if len(st.session_state["players"]) > st.session_state["last_player_count"]:
-            new_player = st.session_state["players"][-1][0]
-            st.toast(f"🎉 New player joined: {new_player}!")  # Streamlit >=1.23
-            st.session_state["last_player_count"] = len(st.session_state["players"])
+    # Flash notification if new player joined
+    if len(st.session_state["players"]) > st.session_state["last_player_count"]:
+        new_player = st.session_state["players"][-1][0]
+        st.success(f"🎉 New player joined: {new_player}!")
+        st.session_state["last_player_count"] = len(st.session_state["players"])
 
-        if st.button("🚀 Start Game"):
-            set_game_started()
-            st.success("Game started! Players can now see questions.")
-            break
-        time.sleep(1)
+    # Start Game button
+    if not is_game_started() and st.button("🚀 Start Game"):
+        set_game_started()
+        st.success("Game started! Players can now see questions.")
 
 # ---------------------------
 # Player View
@@ -165,10 +161,10 @@ else:
             "Players currently joined: " + ", ".join([p[0] for p in st.session_state["players"]])
         )
 
-    # Flash notification if new player joined (players see other players too)
+    # Flash notification if new player joined
     if len(st.session_state["players"]) > st.session_state["last_player_count"]:
         new_player = st.session_state["players"][-1][0]
-        st.toast(f"🎉 New player joined: {new_player}!")
+        st.success(f"🎉 New player joined: {new_player}!")
         st.session_state["last_player_count"] = len(st.session_state["players"])
 
     # Check if game started by host
