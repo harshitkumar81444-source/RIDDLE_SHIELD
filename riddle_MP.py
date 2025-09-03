@@ -1,11 +1,19 @@
 import streamlit as st
 import pandas as pd
-import os
+import qrcode
+from PIL import Image
 import random
+import os
 
-# ---------------- Leaderboard Management ----------------
+# ---------------------------
+# Constants
+# ---------------------------
+APP_URL = "https://riddleshield-puyslisekmtui29rqnrhpl.streamlit.app"  # Your public app URL
 LEADERBOARD_FILE = "leaderboard.csv"
 
+# ---------------------------
+# Leaderboard Functions
+# ---------------------------
 def load_leaderboard():
     if os.path.exists(LEADERBOARD_FILE):
         return pd.read_csv(LEADERBOARD_FILE)
@@ -32,7 +40,17 @@ def show_leaderboard():
         st.subheader("🏆 Leaderboard")
         st.table(df.sort_values(by="Score", ascending=False).reset_index(drop=True))
 
-# ---------------- Riddle Game ----------------
+# ---------------------------
+# QR Code Function
+# ---------------------------
+def show_qr_code():
+    qr = qrcode.make(APP_URL)
+    qr.save("qr.png")
+    st.image("qr.png", caption="📱 Scan to join the game", width=250)
+
+# ---------------------------
+# Game Data
+# ---------------------------
 riddles = {
     "I speak without a mouth and hear without ears. I have nobody, but I come alive with the wind. What am I?": "echo",
     "The more of me you take, the more you leave behind. What am I?": "footsteps",
@@ -41,13 +59,26 @@ riddles = {
     "What has keys but can’t open locks?": "piano"
 }
 
+# ---------------------------
+# Session State
+# ---------------------------
+if "players" not in st.session_state:
+    st.session_state["players"] = []
+if "game_started" not in st.session_state:
+    st.session_state["game_started"] = False
+if "scores" not in st.session_state:
+    st.session_state["scores"] = {}
+
+# ---------------------------
+# Game Functions
+# ---------------------------
 def play_game(player_name):
     score = 0
     for riddle, answer in random.sample(list(riddles.items()), 3):  # ask 3 random riddles
         st.write("🤔 Riddle: ", riddle)
-        user_answer = st.text_input("Your Answer:", key=riddle)
+        user_answer = st.text_input("Your Answer:", key=riddle + "_" + player_name)
 
-        if st.button("Submit", key=riddle+"_submit"):
+        if st.button("Submit", key=riddle + "_submit_" + player_name):
             if user_answer.strip().lower() == answer:
                 st.success("✅ Correct!")
                 score += 1
@@ -58,28 +89,52 @@ def play_game(player_name):
     update_leaderboard(player_name, score)
     show_leaderboard()
 
-# ---------------- Streamlit App ----------------
-st.title("🧩 Multiplayer Riddle Game")
+# ---------------------------
+# Streamlit App Layout
+# ---------------------------
+st.title("🎲 Safety Riddle Game — Multiplayer Mode")
 
-if "page" not in st.session_state:
-    st.session_state.page = "welcome"
+# Role selector (host or player)
+role = st.sidebar.selectbox("Choose role", ["Host", "Player"])
 
-if st.session_state.page == "welcome":
-    st.subheader("Enter your name to join the game")
-    name = st.text_input("Your Name:")
+# ---------------------------
+# Host View
+# ---------------------------
+if role == "Host":
+    st.header("👨‍🏫 Host Lobby")
+    st.write("Project this QR code on the smart board for classmates to join:")
+    show_qr_code()
 
-    if st.button("Join Game"):
-        if name.strip() == "":
-            st.warning("Please enter a valid name.")
-        else:
-            st.session_state.name = name
-            st.session_state.page = "game"
-            st.rerun()
+    st.subheader("Joined Players")
+    if st.session_state["players"]:
+        st.table(pd.DataFrame(st.session_state["players"], columns=["Name"]))
+    else:
+        st.info("No players yet. Waiting...")
 
-elif st.session_state.page == "game":
-    st.subheader(f"Welcome, {st.session_state.name} 👋")
-    play_game(st.session_state.name)
+    if st.button("🚀 Start Game"):
+        st.session_state["game_started"] = True
+        st.success("Game started! Players can now see questions.")
 
-    if st.button("Play Again"):
-        st.session_state.page = "welcome"
-        st.rerun()
+# ---------------------------
+# Player View
+# ---------------------------
+else:
+    if not st.session_state["game_started"]:
+        st.header("🙋 Enter Your Name to Join")
+        name = st.text_input("Your Name")
+        if st.button("Join"):
+            if name.strip():
+                if name not in [p[0] for p in st.session_state["players"]]:
+                    st.session_state["players"].append([name])
+                st.success(f"Welcome, {name}! Waiting for host to start...")
+            else:
+                st.error("Please enter a valid name.")
+    else:
+        st.success("✅ The host has started the game!")
+        player_names = [p[0] for p in st.session_state["players"]]
+        if role == "Player":
+            # Each player plays individually
+            if "current_player" not in st.session_state:
+                st.session_state["current_player"] = name
+            play_game(st.session_state["current_player"])
+        show_leaderboard()
