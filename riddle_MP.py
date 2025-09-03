@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import pyqrcode
-import io
 import random
 import os
 
@@ -41,13 +39,11 @@ def show_leaderboard():
         st.table(df.sort_values(by="Score", ascending=False).reset_index(drop=True))
 
 # ---------------------------
-# QR Code Function
+# QR Code Function (Option 2)
 # ---------------------------
 def show_qr_code():
-    qr = pyqrcode.create(APP_URL)
-    buffer = io.BytesIO()
-    qr.png(buffer, scale=6)
-    st.image(buffer, caption="📱 Scan to join the game", width=250)
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={APP_URL}"
+    st.image(qr_url, caption="📱 Scan to join the game", width=250)
 
 # ---------------------------
 # Game Data
