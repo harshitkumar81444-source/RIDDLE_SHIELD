@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import os
+import time
 
 # ---------------------------
 # Constants
@@ -118,14 +119,11 @@ if role == "Host":
     st.write("Project this QR code for classmates to join:")
     show_qr_code()
 
-    st.subheader("Joined Players (Real-Time)")
-    players_container = st.empty()
-
-    # Update joined players
+    st.subheader("Joined Players (Real-Time Table)")
     if st.session_state["players"]:
-        players_container.table(pd.DataFrame(st.session_state["players"], columns=["Name"]))
+        st.table(pd.DataFrame(st.session_state["players"], columns=["Name"]))
     else:
-        players_container.info("No players yet. Waiting...")
+        st.info("No players yet. Waiting...")
 
     # Flash notification if new player joined
     if len(st.session_state["players"]) > st.session_state["last_player_count"]:
@@ -146,26 +144,26 @@ else:
     st.write("Enter your name to join the game:")
 
     name = st.text_input("Your Name")
+    join_notice = st.empty()  # ephemeral notification
+
     if st.button("Join Game"):
         if name.strip():
             if name not in [p[0] for p in st.session_state["players"]]:
                 st.session_state["players"].append([name])
+                # Brief popup for other players
+                join_notice.success(f"🎉 New player joined: {name}!")
+                time.sleep(1.5)  # show for 1.5 seconds
+                join_notice.empty()
             st.success(f"Welcome, {name}! Waiting for host to start...")
         else:
             st.error("Please enter a valid name.")
 
-    # Real-time joined players notification
+    # Persistent list of joined players
     joined_container = st.empty()
     if st.session_state["players"]:
         joined_container.info(
             "Players currently joined: " + ", ".join([p[0] for p in st.session_state["players"]])
         )
-
-    # Flash notification if new player joined
-    if len(st.session_state["players"]) > st.session_state["last_player_count"]:
-        new_player = st.session_state["players"][-1][0]
-        st.success(f"🎉 New player joined: {new_player}!")
-        st.session_state["last_player_count"] = len(st.session_state["players"])
 
     # Check if game started by host
     if is_game_started():
