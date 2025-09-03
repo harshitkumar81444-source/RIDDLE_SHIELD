@@ -39,10 +39,12 @@ def show_leaderboard():
         st.table(df.sort_values(by="Score", ascending=False).reset_index(drop=True))
 
 # ---------------------------
-# QR Code Function (Option 2)
+# QR Code Function (online)
 # ---------------------------
 def show_qr_code():
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={APP_URL}"
+    # Append role=player to URL automatically
+    player_url = f"{APP_URL}?role=Player"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={player_url}"
     st.image(qr_url, caption="📱 Scan to join the game", width=250)
 
 # ---------------------------
@@ -89,16 +91,17 @@ def play_game(player_name):
 # ---------------------------
 # Streamlit App Layout
 # ---------------------------
-st.title("🎲 Safety Riddle Game — Multiplayer Mode")
 
-# Role selector (host or player)
-role = st.sidebar.selectbox("Choose role", ["Host", "Player"])
+# Detect if user is Host or Player based on URL parameter
+query_params = st.experimental_get_query_params()
+role = query_params.get("role", ["Host"])[0]  # Default role is Host
 
 # ---------------------------
 # Host View
 # ---------------------------
 if role == "Host":
-    st.header("👨‍🏫 Host Lobby")
+    st.title("🎲 Tarun's Riddle Shield — Host Lobby")
+    st.subheader("Host Panel")
     st.write("Project this QR code on the smart board for classmates to join:")
     show_qr_code()
 
@@ -116,22 +119,21 @@ if role == "Host":
 # Player View
 # ---------------------------
 else:
-    if not st.session_state["game_started"]:
-        st.header("🙋 Enter Your Name to Join")
-        name = st.text_input("Your Name")
-        if st.button("Join"):
-            if name.strip():
-                if name not in [p[0] for p in st.session_state["players"]]:
-                    st.session_state["players"].append([name])
-                st.success(f"Welcome, {name}! Waiting for host to start...")
-            else:
-                st.error("Please enter a valid name.")
-    else:
+    st.title("🎲 Welcome to Tarun's Riddle Shield!")
+    st.write("Enter your name to join the game:")
+
+    name = st.text_input("Your Name")
+    if st.button("Join Game"):
+        if name.strip():
+            if name not in [p[0] for p in st.session_state["players"]]:
+                st.session_state["players"].append([name])
+            st.success(f"Welcome, {name}! Waiting for host to start...")
+        else:
+            st.error("Please enter a valid name.")
+
+    # Once game starts
+    if st.session_state["game_started"]:
         st.success("✅ The host has started the game!")
-        player_names = [p[0] for p in st.session_state["players"]]
-        if role == "Player":
-            # Each player plays individually
-            if "current_player" not in st.session_state:
-                st.session_state["current_player"] = name
-            play_game(st.session_state["current_player"])
-        show_leaderboard()
+        if "current_player" not in st.session_state:
+            st.session_state["current_player"] = name
+        play_game(st.session_state["current_player"])
