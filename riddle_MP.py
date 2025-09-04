@@ -8,7 +8,7 @@ import time
 # ---------------------------
 APP_URL = "https://riddleshield-puyslisekmtui29rqnrhpl.streamlit.app"
 QUESTION_TIME = 30  # seconds per question
-ANSWER_PAUSE = 3    # seconds before next question
+NEXT_QUESTION_DELAY = 3  # seconds before next question
 
 # ---------------------------
 # Game Data
@@ -30,13 +30,13 @@ if "game_started" not in st.session_state:
     st.session_state["game_started"] = False
 if "question_index" not in st.session_state:
     st.session_state["question_index"] = 0
-if "question_start_times" not in st.session_state:
-    st.session_state["question_start_times"] = {}
 if "question_order" not in st.session_state:
     st.session_state["question_order"] = list(riddles.keys())
     random.shuffle(st.session_state["question_order"])
 if "player_answers" not in st.session_state:
     st.session_state["player_answers"] = {}  # {player: {q_index: (answer, timestamp)}}
+if "question_start_times" not in st.session_state:
+    st.session_state["question_start_times"] = {}
 
 # ---------------------------
 # QR Code for Host
@@ -62,7 +62,7 @@ def get_leaderboard():
         for q_idx, (ans, ts) in answers.items():
             correct = riddles[st.session_state["question_order"][q_idx]]
             if ans.strip().lower() == correct:
-                start_time = st.session_state["question_start_times"].get(str(q_idx), ts)
+                start_time = st.session_state["question_start_times"].get(q_idx, ts)
                 total += max(0, QUESTION_TIME - int(ts - start_time))
         scores[player] = total
     return pd.DataFrame(list(scores.items()), columns=["Player", "Score"]).sort_values(by="Score", ascending=False)
@@ -86,7 +86,7 @@ if role == "Host":
     if not st.session_state["game_started"]:
         if st.button("🚀 Start Game"):
             st.session_state["game_started"] = True
-            st.session_state["question_start_times"][str(st.session_state["question_index"])] = time.time()
+            st.session_state["question_start_times"][st.session_state["question_index"]] = time.time()
             st.success("Game started! Players can now see questions.")
 
 # ---------------------------
@@ -119,9 +119,10 @@ else:
             st.write(question)
 
             # Start timer for this question
-            if str(q_idx) not in st.session_state["question_start_times"]:
-                st.session_state["question_start_times"][str(q_idx)] = time.time()
-            elapsed = int(time.time() - st.session_state["question_start_times"][str(q_idx)])
+            if q_idx not in st.session_state["question_start_times"]:
+                st.session_state["question_start_times"][q_idx] = time.time()
+
+            elapsed = int(time.time() - st.session_state["question_start_times"][q_idx])
             remaining = max(0, QUESTION_TIME - elapsed)
             st.info(f"⏳ Time remaining: {remaining}s")
 
@@ -140,12 +141,8 @@ else:
                 st.success(f"⏰ Time's up! Correct answer: {correct_answer}")
                 st.subheader("Leaderboard")
                 st.table(get_leaderboard())
-                # Move to next question after 3 seconds
-                if q_idx + 1 < len(st.session_state["question_order"]):
-                    time.sleep(ANSWER_PAUSE)
-                    st.session_state["question_index"] += 1
-                    st.experimental_rerun()
-                else:
-                    st.success("🏁 Quiz Finished!")
-                    st.subheader("Final Leaderboard")
-                    st.table(get_leaderboard())
+                
+                # Move to next question after delay
+                st.session_state["question_index"] += 1
+                time.sleep(NEXT_QUESTION_DELAY)
+                st.experimental_rerun()
