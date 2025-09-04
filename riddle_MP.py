@@ -7,8 +7,8 @@ import time
 # Constants
 # ---------------------------
 APP_URL = "https://riddleshield-puyslisekmtui29rqnrhpl.streamlit.app"
-QUESTION_TIME = 30  # seconds per question
-NEXT_QUESTION_DELAY = 3  # seconds after revealing answer
+QUESTION_TIME = 30
+NEXT_QUESTION_DELAY = 3
 
 # ---------------------------
 # Game Data
@@ -28,18 +28,20 @@ if "players" not in st.session_state:
     st.session_state["players"] = []
 if "game_started" not in st.session_state:
     st.session_state["game_started"] = False
+if "quiz_started" not in st.session_state:  # Host clicks this to start questions
+    st.session_state["quiz_started"] = False
 if "question_index" not in st.session_state:
     st.session_state["question_index"] = 0
 if "question_order" not in st.session_state:
     st.session_state["question_order"] = list(riddles.keys())
     random.shuffle(st.session_state["question_order"])
 if "player_answers" not in st.session_state:
-    st.session_state["player_answers"] = {}  # {player: {q_index: (answer, timestamp)}}
+    st.session_state["player_answers"] = {}
 if "question_start_times" not in st.session_state:
-    st.session_state["question_start_times"] = {}  # {q_index: start_time}
+    st.session_state["question_start_times"] = {}
 
 # ---------------------------
-# QR Code for Host
+# QR Code
 # ---------------------------
 def show_qr_code():
     player_url = f"{APP_URL}?role=Player"
@@ -50,10 +52,10 @@ def show_qr_code():
 # Detect Role
 # ---------------------------
 query_params = st.experimental_get_query_params()
-role = query_params.get("role", ["Host"])[0]  # default Host
+role = query_params.get("role", ["Host"])[0]
 
 # ---------------------------
-# Leaderboard Calculation
+# Leaderboard
 # ---------------------------
 def get_leaderboard():
     scores = {}
@@ -82,24 +84,21 @@ if role == "Host":
     else:
         st.info("No players yet.")
 
-    # Start Game button
-    if not st.session_state["game_started"]:
-        if st.button("🚀 Start Game"):
-            st.session_state["game_started"] = True
+    if not st.session_state["quiz_started"]:
+        if st.button("🚀 Start Quiz"):
+            st.session_state["quiz_started"] = True
             st.session_state["question_start_times"][st.session_state["question_index"]] = time.time()
-            st.success("Game started! Players can now see questions.")
+            st.success("Quiz started!")
 
-    # Show current question with countdown
-    if st.session_state["game_started"]:
+    if st.session_state["quiz_started"]:
+        # Show current question and countdown
         q_idx = st.session_state["question_index"]
         if q_idx < len(st.session_state["question_order"]):
             question = st.session_state["question_order"][q_idx]
             st.subheader(f"Question {q_idx +1}: {question}")
 
-            # Timer placeholder
             timer_placeholder = st.empty()
             start_time = st.session_state["question_start_times"][q_idx]
-
             elapsed = int(time.time() - start_time)
             remaining = max(0, QUESTION_TIME - elapsed)
             timer_placeholder.markdown(f"⏳ Time Remaining: {remaining:02d}s")
@@ -107,10 +106,8 @@ if role == "Host":
             if remaining <= 0:
                 correct_answer = riddles[question]
                 st.success(f"⏰ Time's up! Correct answer: {correct_answer}")
-                # Show leaderboard after each question
                 st.subheader("🏆 Live Leaderboard")
                 st.table(get_leaderboard())
-                # Move to next question after delay
                 time.sleep(NEXT_QUESTION_DELAY)
                 st.session_state["question_index"] += 1
                 if st.session_state["question_index"] < len(st.session_state["question_order"]):
@@ -135,11 +132,10 @@ else:
         elif not name.strip():
             st.error("Enter a valid name.")
 
-    if not st.session_state["game_started"]:
+    if not st.session_state["quiz_started"]:
         st.info("⏳ Waiting for host to start...")
 
-    # Player question view
-    if st.session_state["game_started"] and name.strip():
+    if st.session_state["quiz_started"] and name.strip():
         q_idx = st.session_state["question_index"]
         if q_idx >= len(st.session_state["question_order"]):
             st.success("🏁 Quiz Finished!")
@@ -148,14 +144,12 @@ else:
             st.subheader(f"Question {q_idx +1}")
             st.write(question)
 
-            # Timer placeholder
             timer_placeholder = st.empty()
             start_time = st.session_state["question_start_times"].get(q_idx, time.time())
             elapsed = int(time.time() - start_time)
             remaining = max(0, QUESTION_TIME - elapsed)
             timer_placeholder.markdown(f"⏳ Time Remaining: {remaining:02d}s")
 
-            # Player answer input
             if name not in st.session_state["player_answers"]:
                 st.session_state["player_answers"][name] = {}
             ans_input = st.text_input("Your Answer:", key=f"{name}_{q_idx}", 
