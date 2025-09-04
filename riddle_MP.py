@@ -111,20 +111,19 @@ if role == "Host":
             remaining = max(0, QUESTION_TIME - elapsed)
 
             # Countdown progress bar
-            progress = st.progress(100)
-            progress.progress(int((remaining / QUESTION_TIME) * 100))
+            st.progress(int((remaining / QUESTION_TIME) * 100))
             st.info(f"⏳ Time remaining: {remaining}s")
 
             if elapsed >= QUESTION_TIME:
                 st.success(f"⏰ Time's up! Correct answer: {riddles[question]}")
                 st.subheader("Leaderboard")
                 st.table(get_leaderboard(state))
-                time.sleep(5)
+                time.sleep(3)  # wait only 3 seconds
                 state["question_index"] += 1
                 if state["question_index"] < len(state["question_order"]):
                     state["question_start_times"][str(state["question_index"])] = time.time()
                 save_state(state)
-                st.experimental_rerun()
+                st.rerun()
 
 # ---------------------------
 # Player View
@@ -163,15 +162,17 @@ else:
             remaining = max(0, QUESTION_TIME - elapsed)
 
             # Countdown progress bar
-            progress = st.progress(100)
-            progress.progress(int((remaining / QUESTION_TIME) * 100))
+            st.progress(int((remaining / QUESTION_TIME) * 100))
             st.info(f"⏳ Time remaining: {remaining}s")
 
             # Player answer
             if name not in state["player_answers"]:
                 state["player_answers"][name] = {}
-            ans_input = st.text_input("Your Answer:", key=f"{name}_{q_idx}",
-                                      value=state["player_answers"][name].get(str(q_idx), ("", 0))[0])
+            ans_input = st.text_input(
+                "Your Answer:",
+                key=f"{name}_{q_idx}",
+                value=state["player_answers"][name].get(str(q_idx), ("", 0))[0]
+            )
             if st.button("Submit Answer", key=f"submit_{name}_{q_idx}"):
                 state["player_answers"][name][str(q_idx)] = (ans_input, time.time())
                 save_state(state)
@@ -181,11 +182,9 @@ else:
                 st.success(f"⏰ Time's up! Correct answer: {riddles[question]}")
                 st.subheader("Leaderboard")
                 st.table(get_leaderboard(state))
-                time.sleep(5)
+                time.sleep(3)  # wait only 3 seconds
                 state["question_index"] += 1
                 if state["question_index"] < len(state["question_order"]):
                     state["question_start_times"][str(state["question_index"])] = time.time()
                 save_state(state)
-                st.experimental_rerun()
-
-
+                st.rerun()
