@@ -8,7 +8,6 @@ import time
 # ---------------------------
 APP_URL = "https://riddleshield-puyslisekmtui29rqnrhpl.streamlit.app"
 QUESTION_TIME = 30  # seconds per question
-NEXT_QUESTION_DELAY = 3  # seconds before next question
 
 # ---------------------------
 # Game Data
@@ -30,6 +29,8 @@ if "game_started" not in st.session_state:
     st.session_state["game_started"] = False
 if "question_index" not in st.session_state:
     st.session_state["question_index"] = 0
+if "question_start_time" not in st.session_state:
+    st.session_state["question_start_time"] = None
 if "question_order" not in st.session_state:
     st.session_state["question_order"] = list(riddles.keys())
     random.shuffle(st.session_state["question_order"])
@@ -86,8 +87,22 @@ if role == "Host":
     if not st.session_state["game_started"]:
         if st.button("🚀 Start Game"):
             st.session_state["game_started"] = True
-            st.session_state["question_start_times"][st.session_state["question_index"]] = time.time()
+            st.session_state["question_start_time"] = time.time()
             st.success("Game started! Players can now see questions.")
+
+    # Show current question to host
+    if st.session_state["game_started"] and st.session_state["question_index"] < len(st.session_state["question_order"]):
+        q_idx = st.session_state["question_index"]
+        question = st.session_state["question_order"][q_idx]
+        elapsed = int(time.time() - st.session_state["question_start_time"])
+        remaining = max(0, QUESTION_TIME - elapsed)
+        st.subheader(f"Question {q_idx + 1}")
+        st.write(question)
+        st.progress(remaining/QUESTION_TIME)
+
+        # Show leaderboard dynamically
+        st.subheader("Leaderboard")
+        st.table(get_leaderboard())
 
 # ---------------------------
 # Player View
@@ -107,7 +122,7 @@ else:
         st.info("⏳ Waiting for host to start...")
 
     # Game loop
-    if st.session_state["game_started"] and name.strip() and name in [p[0] for p in st.session_state["players"]]:
+    if st.session_state["game_started"] and name.strip():
         q_idx = st.session_state["question_index"]
         if q_idx >= len(st.session_state["question_order"]):
             st.success("🏁 Quiz Finished!")
@@ -141,8 +156,7 @@ else:
                 st.success(f"⏰ Time's up! Correct answer: {correct_answer}")
                 st.subheader("Leaderboard")
                 st.table(get_leaderboard())
-                
-                # Move to next question after delay
+                # Move to next question after 3 seconds
+                time.sleep(3)
                 st.session_state["question_index"] += 1
-                time.sleep(NEXT_QUESTION_DELAY)
                 st.experimental_rerun()
