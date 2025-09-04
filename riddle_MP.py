@@ -95,6 +95,7 @@ if role == "Host":
             state["question_start_times"]["0"] = time.time()
             save_state(state)
             st.success("Game started!")
+            st.rerun()   # ✅ Immediately refresh so first question appears
 
     if state["game_started"]:
         q_idx = state["question_index"]
