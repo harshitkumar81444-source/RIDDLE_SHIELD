@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Player - Riddle Shield</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+  <h1>🎲 Welcome to Tarun's Riddle Shield!</h1>
+
+  <input class="input" id="playerName" placeholder="Enter your name">
+  <button class="btn" onclick="joinGame()">Join Game</button>
+
+  <div id="waiting" class="subtitle">⏳ Waiting for host to start...</div>
+  <div class="timer" id="timer"></div>
+
+  <div id="questionBox" class="question-box hidden">
+    <div id="questionText"></div>
+    <input class="input" id="answerInput" placeholder="Type your answer">
+    <button class="btn" onclick="submitAnswer()">Submit</button>
+  </div>
+
+  <div class="leaderboard" id="leaderboard"></div>
+</div>
+
+<script>
+function joinGame() {
+    const name = document.getElementById("playerName").value;
+    fetch(`/join?name=${name}`).then(() => {
+        document.getElementById("waiting").innerText = "✅ Joined! Waiting for host...";
+    });
+}
+
+function showQuestion(question) {
+    document.getElementById("waiting").classList.add("hidden");
+    document.getElementById("questionBox").classList.remove("hidden");
+    document.getElementById("questionText").innerText = question;
+}
+
+function updateTimer(sec) {
+    document.getElementById("timer").innerText = "⏳ Time remaining: " + sec + "s";
+}
+
+function submitAnswer() {
+    const ans = document.getElementById("answerInput").value;
+    fetch(`/answer?answer=${ans}`);
+    document.getElementById("answerInput").value = "";
+}
+</script>
+</body>
+</html>
