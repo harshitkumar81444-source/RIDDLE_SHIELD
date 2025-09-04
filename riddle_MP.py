@@ -2,18 +2,16 @@ import streamlit as st
 import pandas as pd
 import random
 import time
-import json
-import os
 
 # ---------------------------
 # Constants
 # ---------------------------
 APP_URL = "https://riddleshield-puyslisekmtui29rqnrhpl.streamlit.app"
 QUESTION_TIME = 30  # seconds per question
-STATE_FILE = "game_state.json"
+ANSWER_PAUSE = 3    # seconds before next question
 
 # ---------------------------
-# Riddles
+# Game Data
 # ---------------------------
 riddles = {
     "I speak without a mouth and hear without ears. I have nobody, but I come alive with the wind. What am I?": "echo",
@@ -24,42 +22,24 @@ riddles = {
 }
 
 # ---------------------------
-# Helpers for shared state
+# Session State Initialization
 # ---------------------------
-def load_state():
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r") as f:
-            return json.load(f)
-    return {
-        "players": [],
-        "game_started": False,
-        "question_index": 0,
-        "question_order": random.sample(list(riddles.keys()), len(riddles)),
-        "player_answers": {},  # {player: {q_idx: (answer, timestamp)}}
-        "question_start_times": {}
-    }
-
-def save_state(state):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f)
+if "players" not in st.session_state:
+    st.session_state["players"] = []
+if "game_started" not in st.session_state:
+    st.session_state["game_started"] = False
+if "question_index" not in st.session_state:
+    st.session_state["question_index"] = 0
+if "question_start_times" not in st.session_state:
+    st.session_state["question_start_times"] = {}
+if "question_order" not in st.session_state:
+    st.session_state["question_order"] = list(riddles.keys())
+    random.shuffle(st.session_state["question_order"])
+if "player_answers" not in st.session_state:
+    st.session_state["player_answers"] = {}  # {player: {q_index: (answer, timestamp)}}
 
 # ---------------------------
-# Leaderboard
-# ---------------------------
-def get_leaderboard(state):
-    scores = {}
-    for player, answers in state["player_answers"].items():
-        total = 0
-        for q_idx, (ans, ts) in answers.items():
-            correct = riddles[state["question_order"][int(q_idx)]]
-            if ans.strip().lower() == correct:
-                start_time = state["question_start_times"].get(str(q_idx), ts)
-                total += max(0, QUESTION_TIME - int(ts - start_time))
-        scores[player] = total
-    return pd.DataFrame(list(scores.items()), columns=["Player", "Score"]).sort_values(by="Score", ascending=False)
-
-# ---------------------------
-# QR Code
+# QR Code for Host
 # ---------------------------
 def show_qr_code():
     player_url = f"{APP_URL}?role=Player"
@@ -67,11 +47,25 @@ def show_qr_code():
     st.image(qr_url, caption="📱 Scan to join the game", width=250)
 
 # ---------------------------
-# Streamlit App
+# Detect Role
 # ---------------------------
-state = load_state()
 query_params = st.experimental_get_query_params()
-role = query_params.get("role", ["Host"])[0]
+role = query_params.get("role", ["Host"])[0]  # default Host
+
+# ---------------------------
+# Leaderboard Calculation
+# ---------------------------
+def get_leaderboard():
+    scores = {}
+    for player, answers in st.session_state["player_answers"].items():
+        total = 0
+        for q_idx, (ans, ts) in answers.items():
+            correct = riddles[st.session_state["question_order"][q_idx]]
+            if ans.strip().lower() == correct:
+                start_time = st.session_state["question_start_times"].get(str(q_idx), ts)
+                total += max(0, QUESTION_TIME - int(ts - start_time))
+        scores[player] = total
+    return pd.DataFrame(list(scores.items()), columns=["Player", "Score"]).sort_values(by="Score", ascending=False)
 
 # ---------------------------
 # Host View
@@ -79,52 +73,21 @@ role = query_params.get("role", ["Host"])[0]
 if role == "Host":
     st.title("🎲 Tarun's Riddle Shield — Host Lobby")
     st.subheader("Host Panel")
-    st.write("Project this QR code on the smartboard:")
+    st.write("Project this QR code for classmates to join:")
     show_qr_code()
 
     st.subheader("Joined Players")
-    if state["players"]:
-        st.table(pd.DataFrame(state["players"], columns=["Name"]))
+    if st.session_state["players"]:
+        st.table(pd.DataFrame(st.session_state["players"], columns=["Name"]))
     else:
         st.info("No players yet.")
 
-    if not state["game_started"]:
+    # Start Game button
+    if not st.session_state["game_started"]:
         if st.button("🚀 Start Game"):
-            state["game_started"] = True
-            state["question_index"] = 0
-            state["question_start_times"]["0"] = time.time()
-            save_state(state)
-            st.success("Game started!")
-            st.rerun()   # ✅ Immediately refresh so first question appears
-
-    if state["game_started"]:
-        q_idx = state["question_index"]
-        if q_idx >= len(state["question_order"]):
-            st.success("🏁 Quiz Finished!")
-            st.subheader("Final Leaderboard")
-            st.table(get_leaderboard(state))
-        else:
-            question = state["question_order"][q_idx]
-            st.subheader(f"Question {q_idx + 1}")
-            st.write(question)
-
-            elapsed = int(time.time() - state["question_start_times"][str(q_idx)])
-            remaining = max(0, QUESTION_TIME - elapsed)
-
-            # Countdown progress bar
-            st.progress(int((remaining / QUESTION_TIME) * 100))
-            st.info(f"⏳ Time remaining: {remaining}s")
-
-            if elapsed >= QUESTION_TIME:
-                st.success(f"⏰ Time's up! Correct answer: {riddles[question]}")
-                st.subheader("Leaderboard")
-                st.table(get_leaderboard(state))
-                time.sleep(3)  # wait only 3 seconds
-                state["question_index"] += 1
-                if state["question_index"] < len(state["question_order"]):
-                    state["question_start_times"][str(state["question_index"])] = time.time()
-                save_state(state)
-                st.rerun()
+            st.session_state["game_started"] = True
+            st.session_state["question_start_times"][str(st.session_state["question_index"])] = time.time()
+            st.success("Game started! Players can now see questions.")
 
 # ---------------------------
 # Player View
@@ -134,58 +97,55 @@ else:
     name = st.text_input("Enter your name")
 
     if st.button("Join Game"):
-        if name.strip() and name not in [p[0] for p in state["players"]]:
-            state["players"].append([name])
-            save_state(state)
-            st.success(f"🎉 Welcome, {name}! Waiting for host...")
+        if name.strip() and name not in [p[0] for p in st.session_state["players"]]:
+            st.session_state["players"].append([name])
+            st.success(f"🎉 Welcome, {name}! Waiting for host to start...")
         elif not name.strip():
             st.error("Enter a valid name.")
 
-    if not state["game_started"]:
+    if not st.session_state["game_started"]:
         st.info("⏳ Waiting for host to start...")
 
-    if state["game_started"] and name.strip():
-        q_idx = state["question_index"]
-        if q_idx >= len(state["question_order"]):
+    # Game loop
+    if st.session_state["game_started"] and name.strip() and name in [p[0] for p in st.session_state["players"]]:
+        q_idx = st.session_state["question_index"]
+        if q_idx >= len(st.session_state["question_order"]):
             st.success("🏁 Quiz Finished!")
             st.subheader("Final Leaderboard")
-            st.table(get_leaderboard(state))
+            st.table(get_leaderboard())
         else:
-            question = state["question_order"][q_idx]
-            st.subheader(f"Question {q_idx + 1}")
+            question = st.session_state["question_order"][q_idx]
+            st.subheader(f"Question {q_idx +1}")
             st.write(question)
 
-            if str(q_idx) not in state["question_start_times"]:
-                state["question_start_times"][str(q_idx)] = time.time()
-                save_state(state)
-
-            elapsed = int(time.time() - state["question_start_times"][str(q_idx)])
+            # Start timer for this question
+            if str(q_idx) not in st.session_state["question_start_times"]:
+                st.session_state["question_start_times"][str(q_idx)] = time.time()
+            elapsed = int(time.time() - st.session_state["question_start_times"][str(q_idx)])
             remaining = max(0, QUESTION_TIME - elapsed)
-
-            # Countdown progress bar
-            st.progress(int((remaining / QUESTION_TIME) * 100))
             st.info(f"⏳ Time remaining: {remaining}s")
 
             # Player answer
-            if name not in state["player_answers"]:
-                state["player_answers"][name] = {}
-            ans_input = st.text_input(
-                "Your Answer:",
-                key=f"{name}_{q_idx}",
-                value=state["player_answers"][name].get(str(q_idx), ("", 0))[0]
-            )
+            if name not in st.session_state["player_answers"]:
+                st.session_state["player_answers"][name] = {}
+            ans_input = st.text_input("Your Answer:", key=f"{name}_{q_idx}", 
+                                      value=st.session_state["player_answers"][name].get(q_idx, ("",0))[0])
             if st.button("Submit Answer", key=f"submit_{name}_{q_idx}"):
-                state["player_answers"][name][str(q_idx)] = (ans_input, time.time())
-                save_state(state)
+                st.session_state["player_answers"][name][q_idx] = (ans_input, time.time())
                 st.success("Answer recorded!")
 
+            # Auto reveal answer after time
             if elapsed >= QUESTION_TIME:
-                st.success(f"⏰ Time's up! Correct answer: {riddles[question]}")
+                correct_answer = riddles[question]
+                st.success(f"⏰ Time's up! Correct answer: {correct_answer}")
                 st.subheader("Leaderboard")
-                st.table(get_leaderboard(state))
-                time.sleep(3)  # wait only 3 seconds
-                state["question_index"] += 1
-                if state["question_index"] < len(state["question_order"]):
-                    state["question_start_times"][str(state["question_index"])] = time.time()
-                save_state(state)
-                st.rerun()
+                st.table(get_leaderboard())
+                # Move to next question after 3 seconds
+                if q_idx + 1 < len(st.session_state["question_order"]):
+                    time.sleep(ANSWER_PAUSE)
+                    st.session_state["question_index"] += 1
+                    st.experimental_rerun()
+                else:
+                    st.success("🏁 Quiz Finished!")
+                    st.subheader("Final Leaderboard")
+                    st.table(get_leaderboard())
